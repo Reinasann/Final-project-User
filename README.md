@@ -1,6 +1,6 @@
 # RecycleAdmin (Smart Recycle Manager) — Flutter Project
 
-โปรเจกต์นี้แปลงมาจากไฟล์ `main.dart` ไฟล์เดียว (~3000 บรรทัด) ให้เป็นโครงสร้าง Flutter project
+โปรเจกต์นี้แปลงมาจากไฟล์ `main.dart` เป็นโครงสร้าง Flutter project
 มาตรฐาน โดยแยก data models, dummy data, และแต่ละหน้าจอออกเป็นไฟล์ของตัวเอง เพื่อให้ดูแลและ
 ต่อยอดได้ง่ายขึ้น
 
