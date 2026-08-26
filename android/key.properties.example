@@ -1,0 +1,4 @@
+storePassword=replace-with-your-private-password
+keyPassword=replace-with-your-private-password
+keyAlias=smart_recycle
+storeFile=../smart-recycle-release.jks

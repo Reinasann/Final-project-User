@@ -1,13 +1,10 @@
 import '../models/models.dart';
 
-var currentUser = User(id: 'U001', name: 'นายรักษ์โลก รักสะอาด', role: 'Staff');
-
 List<Machine> mockMachines = [
   Machine(
     id: 'M001',
     name: 'Recycle Station A',
     location: 'โรงอาหารกลาง (Zone 1)',
-    caretakerId: 'U001',
     isOn: true,
     plasticLevel: 0.4,
     glassLevel: 0.95, // เต็ม
@@ -17,7 +14,6 @@ List<Machine> mockMachines = [
     id: 'M002',
     name: 'Recycle Station B',
     location: 'หอพักนักศึกษาชาย',
-    caretakerId: 'U001',
     isOn: false,
     plasticLevel: 0.1,
     glassLevel: 0.1,
@@ -27,7 +23,6 @@ List<Machine> mockMachines = [
     id: 'M003',
     name: 'Recycle Station C',
     location: 'อาคารเรียนรวม 5',
-    caretakerId: 'U002',
     isOn: true,
     plasticLevel: 0.8,
     glassLevel: 0.2,
@@ -37,7 +32,6 @@ List<Machine> mockMachines = [
     id: 'M004',
     name: 'Recycle Station D',
     location: 'ศูนย์กีฬา',
-    caretakerId: 'U002',
     isOn: true,
     plasticLevel: 0.25,
     glassLevel: 0.15,
@@ -73,7 +67,7 @@ List<NotificationItem> mockNotifications = [
 List<CollectionHistoryItem> mockCollectionHistory = [
   CollectionHistoryItem(
     id: 'H001',
-    date: '2024-02-10',
+    date: '10/02/2024',
     time: '10:30',
     machineId: 'M001',
     machineName: 'Recycle Station A',
@@ -82,7 +76,7 @@ List<CollectionHistoryItem> mockCollectionHistory = [
   ),
   CollectionHistoryItem(
     id: 'H002',
-    date: '2024-02-10',
+    date: '10/02/2024',
     time: '11:15',
     machineId: 'M001',
     machineName: 'Recycle Station A',
@@ -91,7 +85,7 @@ List<CollectionHistoryItem> mockCollectionHistory = [
   ),
   CollectionHistoryItem(
     id: 'H003',
-    date: '2024-02-09',
+    date: '09/02/2024',
     time: '09:00',
     machineId: 'M002',
     machineName: 'Recycle Station B',
@@ -100,7 +94,7 @@ List<CollectionHistoryItem> mockCollectionHistory = [
   ),
   CollectionHistoryItem(
     id: 'H004',
-    date: '2024-02-08',
+    date: '08/02/2024',
     time: '14:20',
     machineId: 'M001',
     machineName: 'Recycle Station A',
@@ -109,7 +103,7 @@ List<CollectionHistoryItem> mockCollectionHistory = [
   ),
   CollectionHistoryItem(
     id: 'H005',
-    date: '2024-02-08',
+    date: '08/02/2024',
     time: '15:00',
     machineId: 'M002',
     machineName: 'Recycle Station B',
@@ -125,7 +119,7 @@ List<IssueReportItem> mockIssueReports = [
     machineId: 'M001',
     title: 'เซ็นเซอร์ขัดข้อง',
     description: 'เซ็นเซอร์ช่องพลาสติกไม่ทำงาน ไฟไม่ติด',
-    date: '2024-02-01',
+    date: '01/02/2024',
     status: 'Resolved',
   ),
   IssueReportItem(
@@ -133,7 +127,7 @@ List<IssueReportItem> mockIssueReports = [
     machineId: 'M001',
     title: 'ฝาถังปิดไม่สนิท',
     description: 'ฝาถังช่องแก้วปิดไม่สนิท ทำให้มีกลิ่น',
-    date: '2024-02-05',
+    date: '05/02/2024',
     status: 'Pending',
   ),
   IssueReportItem(
@@ -141,8 +135,14 @@ List<IssueReportItem> mockIssueReports = [
     machineId: 'M002',
     title: 'เครื่องดับเอง',
     description: 'เครื่องดับเองบ่อยครั้งช่วงบ่าย',
-    date: '2024-02-08',
+    date: '08/02/2024',
     status: 'Pending',
   ),
 ];
 
+Machine? findMachineById(String machineId) {
+  for (final machine in mockMachines) {
+    if (machine.id == machineId) return machine;
+  }
+  return null;
+}

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
-import '../../data/dummy_data.dart';
 import 'machine_detail_page.dart';
+import '../../services/api_service.dart';
+import '../../widgets/skeleton_loading.dart';
 
 class MachineListPage extends StatefulWidget {
   const MachineListPage({super.key});
@@ -15,18 +18,59 @@ class _MachineListPageState extends State<MachineListPage> {
   // Requirement 3: ตัด Filter เลือกเครื่องออก บังคับให้แสดงเฉพาะเครื่องที่ดูแล
   // bool _showMyMachinesOnly = true;
   String _statusFilter = 'All';
+  List<Machine> _machines = [];
+  bool _loading = true;
+  String? _error;
+  StreamSubscription<ApiResource>? _cacheSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _cacheSubscription = ApiService.cacheUpdates
+        .where((resource) => resource == ApiResource.machines)
+        .listen((_) => _loadMachines(silent: true));
+    _loadMachines();
+  }
+
+  Future<void> _loadMachines({
+    bool forceRefresh = false,
+    bool silent = false,
+  }) async {
+    setState(() {
+      _loading = _machines.isEmpty && !silent;
+      if (!silent) _error = null;
+    });
+    try {
+      final machines = await ApiService.machines(forceRefresh: forceRefresh);
+      if (mounted) {
+        setState(() {
+          _machines = machines;
+          _error = null;
+        });
+      }
+    } catch (error) {
+      if (_machines.isEmpty) _error = error.toString();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _cacheSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    List<Machine> filteredMachines = mockMachines.where((m) {
+    List<Machine> filteredMachines = _machines.where((m) {
       // Requirement 3: กรองแสดงเฉพาะเครื่องของผู้ดูแลคนนั้นๆ เสมอ
-      if (m.caretakerId != currentUser.id) return false;
-
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         if (!m.name.toLowerCase().contains(query) &&
-            !m.location.toLowerCase().contains(query))
+            !m.location.toLowerCase().contains(query)) {
           return false;
+        }
       }
       if (_statusFilter != 'All') {
         if (_statusFilter == 'Online' && !m.isOn) return false;
@@ -93,168 +137,193 @@ class _MachineListPageState extends State<MachineListPage> {
               ],
             ),
           ),
-
           Expanded(
-            child: filteredMachines.isEmpty
-                ? const Center(
-                    child: Text(
-                      'ไม่พบข้อมูลเครื่อง',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredMachines.length,
-                    itemBuilder: (context, index) {
-                      final machine = filteredMachines[index];
-
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    MachineDetailPage(machine: machine),
-                              ),
-                            );
-                          },
-                          child: Padding(
+            child: _loading
+                ? const AppSkeletonLoading(layout: AppSkeletonLayout.cards)
+                : _error != null
+                    ? Center(
+                        child: ElevatedButton(
+                            onPressed: () => _loadMachines(forceRefresh: true),
+                            child: const Text('ลองใหม่')))
+                    : filteredMachines.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'ไม่พบข้อมูลเครื่อง',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.builder(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: machine.isOn
-                                        ? Colors.green.shade50
-                                        : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    Icons.smart_toy,
-                                    color: machine.isOn
-                                        ? Colors.green
-                                        : Colors.grey,
-                                    size: 30,
-                                  ),
+                            itemCount: filteredMachines.length,
+                            itemBuilder: (context, index) {
+                              final machine = filteredMachines[index];
+
+                              return Card(
+                                elevation: 2,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        machine.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            MachineDetailPage(machine: machine),
+                                      ),
+                                    );
+                                    if (mounted) _loadMachines();
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            color: machine.isOn
+                                                ? Colors.green.shade50
+                                                : Colors.grey.shade100,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            Icons.smart_toy,
+                                            color: machine.isOn
+                                                ? Colors.green
+                                                : Colors.grey,
+                                            size: 30,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.location_on,
-                                            size: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              machine.location,
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12,
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                machine.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
                                               ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: machine.isOn
-                                                  ? Colors.green.withOpacity(
-                                                      0.1,
-                                                    )
-                                                  : Colors.red.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              machine.isOn
-                                                  ? 'ออนไลน์'
-                                                  : 'ออฟไลน์',
-                                              style: TextStyle(
-                                                color: machine.isOn
-                                                    ? Colors.green
-                                                    : Colors.red,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.location_on,
+                                                    size: 14,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      machine.location,
+                                                      style: TextStyle(
+                                                        color: Colors.grey[600],
+                                                        fontSize: 12,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
-                                          ),
-                                          if (machine.plasticLevel >= 0.9 ||
-                                              machine.glassLevel >= 0.9 ||
-                                              machine.canLevel >= 0.9)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                left: 8.0,
-                                              ),
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
                                                       horizontal: 8,
                                                       vertical: 2,
                                                     ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange
-                                                      .withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  'เต็ม!',
-                                                  style: TextStyle(
-                                                    color: Colors.orange,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
+                                                    decoration: BoxDecoration(
+                                                      color: machine.isOn
+                                                          ? Colors.green
+                                                              .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                          : Colors.red
+                                                              .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Text(
+                                                      machine.isOn
+                                                          ? 'ออนไลน์'
+                                                          : 'ออฟไลน์',
+                                                      style: TextStyle(
+                                                        color: machine.isOn
+                                                            ? Colors.green
+                                                            : Colors.red,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                                  if (machine.plasticLevel >=
+                                                          0.9 ||
+                                                      machine.glassLevel >=
+                                                          0.9 ||
+                                                      machine.canLevel >= 0.9)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                        left: 8.0,
+                                                      ),
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.orange
+                                                              .withValues(
+                                                                  alpha: 0.1),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(4),
+                                                        ),
+                                                        child: const Text(
+                                                          'เต็ม!',
+                                                          style: TextStyle(
+                                                            color:
+                                                                Colors.orange,
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
-                                            ),
-                                        ],
-                                      ),
-                                    ],
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.grey,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.grey,
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        ),
-                      );
-                    },
-                  ),
           ),
         ],
       ),
@@ -274,7 +343,7 @@ class _MachineListPageState extends State<MachineListPage> {
           setState(() => _statusFilter = selected ? value : 'All'),
       selectedColor: color == Colors.grey
           ? Colors.teal.shade100
-          : color.withOpacity(0.2),
+          : color.withValues(alpha: 0.2),
       labelStyle: TextStyle(
         color: isSelected
             ? (color == Colors.grey ? Colors.teal[800] : color)
@@ -285,4 +354,3 @@ class _MachineListPageState extends State<MachineListPage> {
     );
   }
 }
-

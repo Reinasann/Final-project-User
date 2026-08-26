@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'register_page.dart';
 import 'forgot_password_page.dart';
 import '../main_layout.dart';
+import '../../services/api_service.dart';
+import '../../services/session_service.dart';
+import '../../services/push_notification_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,24 +18,43 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailCtrl = TextEditingController(
     text: 'staff@recycle.com',
   );
-  final TextEditingController _passCtrl = TextEditingController(text: '123456');
+  final TextEditingController _passCtrl =
+      TextEditingController(text: '12345678');
+  bool _obscurePassword = true;
+  bool _loggingIn = false;
 
-  void _handleLogin() {
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
     String email = _emailCtrl.text.trim();
     String pass = _passCtrl.text.trim();
 
-    if (email == 'staff@recycle.com' && pass == '123456') {
+    setState(() => _loggingIn = true);
+    try {
+      final user = await ApiService.login(email, pass);
+      if (!mounted) return;
+      applyCurrentUser(user);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainLayout()),
       );
-    } else {
+      unawaited(PushNotificationService.activateForCurrentUser());
+    } catch (error) {
+      if (!mounted) return;
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('เข้าสู่ระบบไม่สำเร็จ'),
-          content: const Text(
-            'อีเมลหรือรหัสผ่านไม่ถูกต้อง\nกรุณาลองใหม่อีกครั้ง',
+          content: Text(
+            error is ApiException
+                ? error.message
+                : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้\n'
+                    'กรุณาตรวจสอบว่า Django ทำงานอยู่ที่ ${ApiService.baseUrl}',
           ),
           actions: [
             TextButton(
@@ -41,6 +64,8 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       );
+    } finally {
+      if (mounted) setState(() => _loggingIn = false);
     }
   }
 
@@ -78,10 +103,18 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passCtrl,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: 'รหัสผ่าน',
                   prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword
+                        ? Icons.visibility
+                        : Icons.visibility_off),
+                    tooltip: _obscurePassword ? 'แสดงรหัสผ่าน' : 'ซ่อนรหัสผ่าน',
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -116,31 +149,18 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: _handleLogin,
-                  child: const Text('เข้าสู่ระบบ'),
+                  onPressed: _loggingIn ? null : _handleLogin,
+                  child: _loggingIn
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('เข้าสู่ระบบ'),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("ยังไม่มีบัญชี? "),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (c) => const RegisterPage()),
-                      );
-                    },
-                    child: const Text(
-                      "สมัครสมาชิก",
-                      style: TextStyle(
-                        color: Colors.teal,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -149,4 +169,3 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-

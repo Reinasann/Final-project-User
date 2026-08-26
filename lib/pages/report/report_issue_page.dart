@@ -1,112 +1,177 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
+import '../../widgets/skeleton_loading.dart';
+
 class ReportIssuePage extends StatefulWidget {
+  final String machineId;
   final String machineName;
-  const ReportIssuePage({super.key, required this.machineName});
+
+  const ReportIssuePage({
+    super.key,
+    required this.machineId,
+    required this.machineName,
+  });
 
   @override
   State<ReportIssuePage> createState() => _ReportIssuePageState();
 }
 
 class _ReportIssuePageState extends State<ReportIssuePage> {
-  String selectedIssue = 'เครื่องไม่ทำงาน';
-  final List<String> issues = [
-    'เครื่องไม่ทำงาน',
-    'เซ็นเซอร์ผิดปกติ',
-    'ถังขยะชำรุด',
-    'ระบบไฟขัดข้อง',
-    'อื่นๆ',
-  ];
+  late Future<List<Map<String, dynamic>>> _categoriesFuture;
+  final _descriptionController = TextEditingController();
+  int? _categoryId;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoriesFuture = ApiService.issueCategories();
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_categoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกหัวข้อปัญหา')),
+      );
+      return;
+    }
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกรายละเอียดปัญหา')),
+      );
+      return;
+    }
+    setState(() => _sending = true);
+    try {
+      await ApiService.createIssue(
+        widget.machineId,
+        _categoryId!,
+        description,
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('ส่งข้อมูลสำเร็จ'),
+          content: const Text(
+            'บันทึกรายการแจ้งปัญหาลงฐานข้อมูลแล้ว ผู้ดูแลสามารถตรวจสอบได้ทันที',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ตกลง'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ส่งรายงานไม่สำเร็จ: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('แจ้งซ่อม/รายงานปัญหา')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'เครื่อง: ${widget.machineName}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-
-            const Text(
-              'หัวข้อปัญหา',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  value: selectedIssue,
-                  items: issues
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (val) => setState(() => selectedIssue = val!),
+      appBar: AppBar(title: const Text('แจ้งซ่อม / รายงานปัญหา')),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _categoriesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AppSkeletonLoading(layout: AppSkeletonLayout.form);
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: FilledButton.icon(
+                onPressed: () => setState(
+                  () => _categoriesFuture =
+                      ApiService.issueCategories(forceRefresh: true),
                 ),
+                icon: const Icon(Icons.refresh),
+                label: Text('โหลดหัวข้อไม่สำเร็จ: ${snapshot.error}'),
               ),
-            ),
-
-            const SizedBox(height: 20),
-            const Text(
-              'รายละเอียดเพิ่มเติม',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'อธิบายอาการหรือปัญหาที่พบ...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (c) => AlertDialog(
-                      title: const Text('ส่งข้อมูลสำเร็จ'),
-                      content: const Text(
-                        'เจ้าหน้าที่ได้รับเรื่องแจ้งซ่อมแล้ว',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(c);
-                            Navigator.pop(context);
-                          },
-                          child: const Text('ตกลง'),
+            );
+          }
+          final categories = snapshot.data ?? const [];
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'เครื่อง: ${widget.machineName}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<int>(
+                  initialValue: _categoryId,
+                  decoration: const InputDecoration(
+                    labelText: 'หัวข้อปัญหา',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: categories
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item['id'] as int,
+                          child: Text('${item['name']}'),
                         ),
-                      ],
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.send),
-                label: const Text('ส่งรายงาน'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _categoryId = value),
                 ),
-              ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _descriptionController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'รายละเอียดเพิ่มเติม',
+                    hintText: 'อธิบายอาการหรือปัญหาที่พบ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: _sending ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.send),
+                    label: const Text('ส่งรายงาน'),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
-

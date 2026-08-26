@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../models/date_range_preset.dart';
 import '../../models/models.dart';
-import '../../data/dummy_data.dart';
+import '../../services/api_service.dart';
+import '../../widgets/skeleton_loading.dart';
 import '../label/label_print_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -11,233 +16,308 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
+  late Future<List<CollectionHistoryItem>> _historyFuture;
   String _searchQuery = '';
   String? _selectedMachine;
+  String _rangePreset = '7d';
   DateTime? _startDate;
   DateTime? _endDate;
+  StreamSubscription<ApiResource>? _cacheSubscription;
 
-  // -----------------------------------------------------------
-  // ฟังก์ชันสำหรับเลือกสีตามประเภทขยะ (เพิ่มส่วนนี้เข้ามา)
-  // -----------------------------------------------------------
-  Color _getTypeColor(String type) {
-    if (type.contains('Plastic') || type.contains('PET') || type.contains('พลาสติก')) {
-      return Colors.orange;
-    } else if (type.contains('Glass') || type.contains('แก้ว')) {
-      return Colors.blueAccent;
-    } else if (type.contains('Can') || type.contains('กระป๋อง')) {
-      return Colors.green;
+  @override
+  void initState() {
+    super.initState();
+    _cacheSubscription = ApiService.cacheUpdates
+        .where((resource) => resource == ApiResource.collections)
+        .listen((_) {
+      if (mounted) setState(_reload);
+    });
+    _reload();
+  }
+
+  void _reload({bool forceRefresh = false}) {
+    _historyFuture = ApiService.collections(forceRefresh: forceRefresh);
+  }
+
+  @override
+  void dispose() {
+    _cacheSubscription?.cancel();
+    super.dispose();
+  }
+
+  Color _typeColor(String type) {
+    if (type.contains('พลาสติก')) return Colors.orange;
+    if (type.contains('แก้ว')) return Colors.blue;
+    if (type.contains('กระป๋อง')) return Colors.green;
+    return Colors.grey;
+  }
+
+  List<CollectionHistoryItem> _filtered(
+    List<CollectionHistoryItem> history,
+  ) {
+    final query = _searchQuery.trim().toLowerCase();
+    final selectedRange = _selectedDateRange(history);
+    return history.where((item) {
+      final matchesSearch = query.isEmpty ||
+          item.machineName.toLowerCase().contains(query) ||
+          item.type.toLowerCase().contains(query);
+      final matchesMachine =
+          _selectedMachine == null || item.machineName == _selectedMachine;
+      final parsedDate = parseAppDate(item.date);
+      final itemDate = parsedDate == null
+          ? null
+          : DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+      final matchesDate = itemDate != null &&
+          !itemDate.isBefore(selectedRange.start) &&
+          !itemDate.isAfter(selectedRange.end);
+      return matchesSearch && matchesMachine && matchesDate;
+    }).toList();
+  }
+
+  DateTimeRange _selectedDateRange(List<CollectionHistoryItem> history) {
+    if (_startDate != null && _endDate != null) {
+      return DateTimeRange(start: _startDate!, end: _endDate!);
     }
-    return Colors.grey; // สีสำรอง
+    final dates = history
+        .map((item) => parseAppDate(item.date))
+        .whereType<DateTime>()
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toList()
+      ..sort();
+    final now = DateTime.now();
+    final end =
+        dates.isEmpty ? DateTime(now.year, now.month, now.day) : dates.last;
+    return appPresetDateRange(_rangePreset, end);
+  }
+
+  Future<void> _pickDateRange(List<CollectionHistoryItem> history) async {
+    final initialRange = _selectedDateRange(history);
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange:
+          initialRange.end.isAfter(DateTime.now()) ? null : initialRange,
+      helpText: 'เลือกช่วงวันที่',
+      cancelText: 'ยกเลิก',
+      confirmText: 'ตกลง',
+    );
+    if (range != null) {
+      setState(() {
+        _rangePreset = 'custom';
+        _startDate = range.start;
+        _endDate = range.end;
+      });
+    }
+  }
+
+  void _selectPreset(String preset) {
+    setState(() {
+      _rangePreset = preset;
+      _startDate = null;
+      _endDate = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter Logic
-    List<CollectionHistoryItem> filteredHistory = mockCollectionHistory.where((item) {
-      bool matchesSearch = item.machineName.contains(_searchQuery) || item.type.contains(_searchQuery);
-      bool matchesMachine = _selectedMachine == null || _selectedMachine == 'All' || item.machineName == _selectedMachine;
-
-      bool matchesDate = true;
-      if (_startDate != null && _endDate != null) {
-        DateTime itemDate = DateTime.parse(item.date);
-        matchesDate = itemDate.isAfter(_startDate!.subtract(const Duration(days: 1))) &&
-            itemDate.isBefore(_endDate!.add(const Duration(days: 1)));
-      }
-
-      return matchesSearch && matchesMachine && matchesDate;
-    }).toList();
-
-    // Unique machines for dropdown
-    final machinesList = mockCollectionHistory.map((e) => e.machineName).toSet().toList();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('ประวัติการเก็บขยะ')),
-      body: Column(
-        children: [
-          // -------------------------------------------------------
-          // 1. Filters Section
-          // -------------------------------------------------------
-          Card(
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'ค้นหา...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    ),
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedMachine,
-                          hint: const Text('เลือกเครื่อง'),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          items: ['All', ...machinesList]
-                              .map((e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e == 'All' ? 'ทุกเครื่อง' : e),
-                                  ))
-                              .toList(),
-                          onChanged: (val) => setState(() => _selectedMachine = val),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton(
-                        icon: const Icon(Icons.date_range),
-                        onPressed: () async {
-                          final picked = await showDateRangePicker(
-                            context: context,
-                            firstDate: DateTime(2023),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _startDate = picked.start;
-                              _endDate = picked.end;
-                            });
-                          }
-                        },
-                      ),
-                      if (_startDate != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.red),
-                          onPressed: () => setState(() {
-                            _startDate = null;
-                            _endDate = null;
-                          }),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // -------------------------------------------------------
-          // 2. Data Display Section (ListView + Card + Custom Colors)
-          // -------------------------------------------------------
-          Expanded(
-            child: filteredHistory.isEmpty
-                ? const Center(child: Text('ไม่พบข้อมูล'))
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    itemCount: filteredHistory.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredHistory[index];
-                      
-                      // เรียกใช้ฟังก์ชันดึงสี (ส้ม/ฟ้า/เขียว)
-                      final Color typeColor = _getTypeColor(item.type);
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              // ส่วนข้อมูลหลัก (ซ้าย)
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // ชื่อเครื่อง
-                                    Text(
-                                      item.machineName,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blueGrey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    
-                                    // ประเภท (ใส่สี) และ น้ำหนัก
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            // ใช้สีที่ได้จากฟังก์ชัน + ความโปร่งแสง
-                                            color: typeColor.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: typeColor),
-                                          ),
-                                          child: Text(
-                                            item.type,
-                                            style: TextStyle(
-                                              fontSize: 12, 
-                                              fontWeight: FontWeight.bold,
-                                              color: typeColor, // ใช้สีตัวอักษรตามประเภท
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          'น้ำหนัก ${item.weight}',
-                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    
-                                    // วันที่และเวลา
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${item.date}  |  ${item.time}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              
-                              // ส่วนปุ่ม Action (ขวา)
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.print, color: Colors.blue),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (c) => LabelPrintPage(
-                                          machineName: item.machineName,
-                                          preSelectedType: item.type,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+      appBar: AppBar(
+        title: const Text('ประวัติการเก็บขยะ'),
+        actions: [
+          IconButton(
+            tooltip: 'โหลดข้อมูลใหม่',
+            onPressed: () => setState(() => _reload(forceRefresh: true)),
+            icon: const Icon(Icons.refresh),
           ),
         ],
+      ),
+      body: FutureBuilder<List<CollectionHistoryItem>>(
+        future: _historyFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AppSkeletonLoading(layout: AppSkeletonLayout.list);
+          }
+          if (snapshot.hasError) {
+            return _ErrorView(
+              message: snapshot.error.toString(),
+              onRetry: () => setState(() => _reload(forceRefresh: true)),
+            );
+          }
+
+          final history = snapshot.data ?? const [];
+          final machines =
+              history.map((item) => item.machineName).toSet().toList()..sort();
+          final selectedRange = _selectedDateRange(history);
+          final filtered = _filtered(history);
+          return Column(
+            children: [
+              Card(
+                margin: const EdgeInsets.all(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'ค้นหาชื่อเครื่องหรือประเภทขยะ',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedMachine,
+                        decoration: const InputDecoration(
+                          labelText: 'เครื่องคัดแยก',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('ทุกเครื่อง'),
+                          ),
+                          ...machines.map(
+                            (name) => DropdownMenuItem(
+                              value: name,
+                              child: Text(name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _selectedMachine = value),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'ช่วงวันที่ ${formatAppDate(selectedRange.start)} - ${formatAppDate(selectedRange.end)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: appDateRangePresets.map((preset) {
+                            final selected = _rangePreset == preset.key;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(preset.label),
+                                selected: selected,
+                                onSelected: (_) => preset.isCustom
+                                    ? _pickDateRange(history)
+                                    : _selectPreset(preset.key),
+                                showCheckmark: false,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: filtered.isEmpty
+                    ? const Center(child: Text('ไม่พบประวัติการเก็บขยะ'))
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          setState(() => _reload(forceRefresh: true));
+                          await _historyFuture;
+                        },
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final item = filtered[index];
+                            final color = _typeColor(item.type);
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              child: ListTile(
+                                title: Text(
+                                  item.machineName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    '${item.type} • ${item.weight}\n'
+                                    '${item.date} เวลา ${item.time} น.',
+                                  ),
+                                ),
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      color.withValues(alpha: 0.15),
+                                  child: Icon(Icons.recycling, color: color),
+                                ),
+                                trailing: IconButton(
+                                  tooltip: 'พิมพ์ฉลาก',
+                                  icon: const Icon(Icons.print),
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => LabelPrintPage(
+                                        machineName: item.machineName,
+                                        preSelectedType: item.type,
+                                        weightKg: double.tryParse(
+                                          item.weight.split(' ').first,
+                                        ),
+                                        collectedAt: parseAppDate(item.date),
+                                        batchCode: 'COL-${item.id}',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                isThreeLine: true,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Text('โหลดข้อมูลไม่สำเร็จ\n$message', textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('ลองอีกครั้ง'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
