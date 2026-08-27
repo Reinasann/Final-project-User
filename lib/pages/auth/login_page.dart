@@ -79,7 +79,13 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.recycling_rounded, size: 80, color: Colors.teal),
+              Image.asset(
+                'assets/images/logo.png',
+                width: 120,
+                height: 120,
+                fit: BoxFit.contain,
+                semanticLabel: 'โลโก้ Smart Recycle',
+              ),
               const SizedBox(height: 20),
               const Text(
                 'Smart Recycle',

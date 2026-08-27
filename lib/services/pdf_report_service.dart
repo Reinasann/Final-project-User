@@ -85,7 +85,9 @@ class PdfReportService {
     }
 
     final fontData = await rootBundle.load('assets/fonts/tahoma.ttf');
+    final logoData = await rootBundle.load('assets/images/logo.png');
     final thaiFont = pw.Font.ttf(fontData);
+    final logo = pw.MemoryImage(logoData.buffer.asUint8List());
     final generatedAt = _generatedDateFormat.format(DateTime.now());
     final documentNumber =
         'SR-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}';
@@ -98,6 +100,7 @@ class PdfReportService {
 
     final content = <pw.Widget>[
       _reportHeader(
+        logo: logo,
         generatedAt: generatedAt,
         documentNumber: documentNumber,
         periodLabel: periodLabel,
@@ -181,6 +184,7 @@ class PdfReportService {
   }
 
   static pw.Widget _reportHeader({
+    required pw.MemoryImage logo,
     required String generatedAt,
     required String documentNumber,
     required String periodLabel,
@@ -197,6 +201,13 @@ class PdfReportService {
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
+              pw.Image(
+                logo,
+                width: 48,
+                height: 48,
+                fit: pw.BoxFit.contain,
+              ),
+              pw.SizedBox(width: 10),
               pw.Expanded(
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,

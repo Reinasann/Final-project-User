@@ -21,7 +21,9 @@ class LabelPdfService {
     required String collectorName,
   }) async {
     final fontData = await rootBundle.load('assets/fonts/tahoma.ttf');
+    final logoData = await rootBundle.load('assets/images/logo.png');
     final thaiFont = pw.Font.ttf(fontData);
+    final logo = pw.MemoryImage(logoData.buffer.asUint8List());
     final document = pw.Document(
       title: 'Smart Recycle Label - $batchCode',
       author: 'Smart Recycle',
@@ -55,12 +57,23 @@ class LabelPdfService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text(
-                    'SMART RECYCLE',
-                    style: pw.TextStyle(
-                      fontSize: 15,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                  pw.Row(
+                    children: [
+                      pw.Image(
+                        logo,
+                        width: 14 * PdfPageFormat.mm,
+                        height: 14 * PdfPageFormat.mm,
+                        fit: pw.BoxFit.contain,
+                      ),
+                      pw.SizedBox(width: 3 * PdfPageFormat.mm),
+                      pw.Text(
+                        'SMART RECYCLE',
+                        style: pw.TextStyle(
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(

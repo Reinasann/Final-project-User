@@ -2,6 +2,7 @@
 .packages
 build/
 output/
+tmp/
 .flutter-plugins
 .flutter-plugins-dependencies
 *.iml
