@@ -47,6 +47,8 @@ class Machine {
   final String id;
   final String name;
   final String location;
+  final double? latitude;
+  final double? longitude;
   bool isOn;
   double plasticLevel;
   double glassLevel;
@@ -59,6 +61,8 @@ class Machine {
     required this.id,
     required this.name,
     required this.location,
+    this.latitude,
+    this.longitude,
     this.isOn = true,
     this.plasticLevel = 0.0,
     this.glassLevel = 0.0,
@@ -67,6 +71,14 @@ class Machine {
     this.glassWeight = 0.0,
     this.canWeight = 0.0,
   });
+
+  bool get hasCoordinates =>
+      latitude != null &&
+      longitude != null &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
 
   factory Machine.fromApi(Map<String, dynamic> json) {
     final bins = <String, Map<String, dynamic>>{};
@@ -83,6 +95,8 @@ class Machine {
       id: json['id'] as String,
       name: json['name'] as String,
       location: json['location'] as String? ?? '',
+      latitude: double.tryParse('${json['latitude'] ?? ''}'),
+      longitude: double.tryParse('${json['longitude'] ?? ''}'),
       isOn: json['status'] == 'Online',
       plasticLevel: level('plastic'),
       glassLevel: level('glass'),

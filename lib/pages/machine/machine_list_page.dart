@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import 'machine_detail_page.dart';
 import '../../services/api_service.dart';
 import '../../widgets/skeleton_loading.dart';
+import '../../widgets/machine_overview_map.dart';
 
 class MachineListPage extends StatefulWidget {
   const MachineListPage({super.key});
@@ -84,6 +85,16 @@ class _MachineListPageState extends State<MachineListPage> {
       return true;
     }).toList();
 
+    Future<void> openMachine(Machine machine) async {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MachineDetailPage(machine: machine),
+        ),
+      );
+      if (mounted) _loadMachines();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('รายการเครื่องรีไซเคิล'),
@@ -153,29 +164,32 @@ class _MachineListPageState extends State<MachineListPage> {
                             ),
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: filteredMachines.length,
+                            padding: const EdgeInsets.only(bottom: 16),
+                            itemCount: filteredMachines.length + 1,
                             itemBuilder: (context, index) {
-                              final machine = filteredMachines[index];
+                              if (index == 0) {
+                                return MachineOverviewMap(
+                                  machines: filteredMachines,
+                                  onMachineTap: openMachine,
+                                );
+                              }
+
+                              final machine = filteredMachines[index - 1];
 
                               return Card(
                                 elevation: 2,
-                                margin: const EdgeInsets.only(bottom: 16),
+                                margin: EdgeInsets.fromLTRB(
+                                  16,
+                                  index == 1 ? 16 : 0,
+                                  16,
+                                  16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(16),
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            MachineDetailPage(machine: machine),
-                                      ),
-                                    );
-                                    if (mounted) _loadMachines();
-                                  },
+                                  onTap: () => openMachine(machine),
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: Row(
