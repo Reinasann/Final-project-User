@@ -32,12 +32,16 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
   StreamSubscription<ApiResource>? _cacheSubscription;
 
   bool get _displayedStatus => _pendingStatus ?? isMachineOn;
+  bool get _canCollectWaste =>
+      _machine.canOperate && !isMachineOn && !_updatingStatus;
 
   String get _machineStatusText {
     if (_updatingStatus) {
-      return _pendingStatus == true ? 'กำลังเปิดเครื่อง…' : 'กำลังปิดเครื่อง…';
+      return _pendingStatus == true
+          ? 'กำลังเปิดรับข้อมูลจากเครื่อง…'
+          : 'กำลังหยุดรับข้อมูลจากเครื่อง…';
     }
-    return isMachineOn ? 'กำลังทำงาน' : 'ปิดการทำงาน';
+    return isMachineOn ? 'เปิดรับข้อมูลจากเครื่อง' : 'ปิดรับข้อมูลจากเครื่อง';
   }
 
   @override
@@ -99,6 +103,16 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
   }
 
   Future<void> _setMachineStatus(bool value) async {
+    if (!_machine.canOperate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'เฉพาะผู้ดูแลเครื่องเท่านั้นที่สามารถเปิดหรือปิดการรับข้อมูลได้',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() {
       _updatingStatus = true;
       _pendingStatus = value;
@@ -150,6 +164,28 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
     String type,
     Function(double) updateState,
   ) async {
+    if (!_machine.canOperate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('เครื่องนี้อยู่ในโหมดดูอย่างเดียวสำหรับบัญชีของคุณ'),
+        ),
+      );
+      return;
+    }
+    if (_updatingStatus) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('กรุณารอให้การเปลี่ยนสถานะเครื่องเสร็จสิ้น')),
+      );
+      return;
+    }
+    if (isMachineOn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากดปิดเครื่องก่อนทำการเก็บขยะ')),
+      );
+      return;
+    }
+
     final wasteType = switch (type) {
       'พลาสติก' => 'plastic',
       'แก้ว' => 'glass',
@@ -244,7 +280,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'สถานะระบบ (System Status)',
+                            'การรับข้อมูลจากเครื่อง (Device Data)',
                             style: TextStyle(color: Colors.white70),
                           ),
                           const SizedBox(height: 8),
@@ -281,13 +317,87 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                         value: _displayedStatus,
                         activeThumbColor: Colors.white,
                         activeTrackColor: Colors.tealAccent,
-                        onChanged: _updatingStatus ? null : _setMachineStatus,
+                        onChanged: _updatingStatus || !_machine.canOperate
+                            ? null
+                            : _setMachineStatus,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+
+            if (!_machine.canOperate) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.shade50,
+                  border: Border.all(color: Colors.blueGrey.shade200),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.visibility, color: Colors.blueGrey),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'โหมดดูอย่างเดียว · ผู้ดูแลเครื่อง: ${_machine.caretakerName.isEmpty ? 'ยังไม่กำหนด' : _machine.caretakerName}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (!_canCollectWaste) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  border: Border.all(color: Colors.amber.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.amber),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'ต้องกดปิดเครื่องและรอจนสถานะเป็น “ปิดรับข้อมูลจากเครื่อง” ก่อนจึงจะเก็บขยะได้',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_machine.canOperate && _canCollectWaste) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  border: Border.all(color: Colors.teal.shade200),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.timer_outlined, color: Colors.teal),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'ระบบพักรับข้อมูลเป็นเวลา 30 นาที หาก ESP32 ยังส่งข้อมูลหลังครบเวลา เครื่องจะกลับเป็น Online อัตโนมัติ',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 24),
             Text(
@@ -321,18 +431,20 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.build),
                 label: const Text('แจ้งซ่อม / รายงานปัญหา'),
-                onPressed: () async {
-                  final created = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReportIssuePage(
-                        machineId: _machine.id,
-                        machineName: _machine.name,
-                      ),
-                    ),
-                  );
-                  if (created == true) _loadDatabaseData();
-                },
+                onPressed: _machine.canOperate
+                    ? () async {
+                        final created = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ReportIssuePage(
+                              machineId: _machine.id,
+                              machineName: _machine.name,
+                            ),
+                          ),
+                        );
+                        if (created == true) _loadDatabaseData();
+                      }
+                    : null,
               ),
             ),
 
@@ -610,9 +722,15 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                         width: double.infinity,
                         height: 45,
                         child: ElevatedButton.icon(
-                          onPressed: () => _collectWaste(label, updateState),
+                          onPressed: _canCollectWaste
+                              ? () => _collectWaste(label, updateState)
+                              : null,
                           icon: const Icon(Icons.cleaning_services),
-                          label: const Text('เก็บขยะ (Collect Waste)'),
+                          label: Text(
+                            _canCollectWaste
+                                ? 'เก็บขยะ (Collect Waste)'
+                                : 'กรุณาปิดเครื่องก่อนเก็บขยะ',
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
@@ -672,8 +790,9 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                           SizedBox(
                             height: 30,
                             child: ElevatedButton(
-                              onPressed: () =>
-                                  _collectWaste(label, updateState),
+                              onPressed: _canCollectWaste
+                                  ? () => _collectWaste(label, updateState)
+                                  : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.teal,
                                 foregroundColor: Colors.white,
@@ -682,7 +801,9 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                                 ),
                                 textStyle: const TextStyle(fontSize: 12),
                               ),
-                              child: const Text('เก็บ'),
+                              child: Text(
+                                _canCollectWaste ? 'เก็บ' : 'ปิดเครื่องก่อน',
+                              ),
                             ),
                           ),
                         ],

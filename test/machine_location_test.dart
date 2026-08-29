@@ -10,12 +10,17 @@ void main() {
       'latitude': '13.756300',
       'longitude': '100.501800',
       'status': 'Online',
+      'caretaker': {'id': 'U001', 'name': 'ผู้ดูแลเครื่อง A'},
+      'can_operate': true,
       'bins': <Map<String, dynamic>>[],
     });
 
     expect(machine.latitude, 13.7563);
     expect(machine.longitude, 100.5018);
     expect(machine.hasCoordinates, isTrue);
+    expect(machine.caretakerId, 'U001');
+    expect(machine.caretakerName, 'ผู้ดูแลเครื่อง A');
+    expect(machine.canOperate, isTrue);
   });
 
   test('machine without complete coordinates is not placed on the map', () {

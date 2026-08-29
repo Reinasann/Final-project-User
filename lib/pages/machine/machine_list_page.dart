@@ -324,6 +324,21 @@ class _MachineListPageState extends State<MachineListPage> {
                                                     ),
                                                 ],
                                               ),
+                                              const SizedBox(height: 5),
+                                              Text(
+                                                machine.canOperate
+                                                    ? 'คุณเป็นผู้ดูแลเครื่องนี้'
+                                                    : 'ดูอย่างเดียว · ผู้ดูแล: ${machine.caretakerName.isEmpty ? 'ยังไม่กำหนด' : machine.caretakerName}',
+                                                style: TextStyle(
+                                                  color: machine.canOperate
+                                                      ? Colors.teal.shade700
+                                                      : Colors.grey.shade600,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ],
                                           ),
                                         ),
