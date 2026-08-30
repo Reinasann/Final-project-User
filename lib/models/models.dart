@@ -49,8 +49,8 @@ class Machine {
   final String location;
   final double? latitude;
   final double? longitude;
-  final String caretakerId;
-  final String caretakerName;
+  final List<String> caretakerIds;
+  final List<String> caretakerNames;
   final bool canOperate;
   bool isOn;
   double plasticLevel;
@@ -66,8 +66,8 @@ class Machine {
     required this.location,
     this.latitude,
     this.longitude,
-    this.caretakerId = '',
-    this.caretakerName = '',
+    this.caretakerIds = const [],
+    this.caretakerNames = const [],
     this.canOperate = false,
     this.isOn = true,
     this.plasticLevel = 0.0,
@@ -86,6 +86,9 @@ class Machine {
       longitude! >= -180 &&
       longitude! <= 180;
 
+  String get caretakerId => caretakerIds.isEmpty ? '' : caretakerIds.first;
+  String get caretakerName => caretakerNames.join(', ');
+
   factory Machine.fromApi(Map<String, dynamic> json) {
     final bins = <String, Map<String, dynamic>>{};
     for (final item in (json['bins'] as List<dynamic>? ?? const [])) {
@@ -97,17 +100,27 @@ class Machine {
         (double.tryParse('${bins[type]?['level_percent']}') ?? 0) / 100;
     double weight(String type) =>
         double.tryParse('${bins[type]?['weight_kg']}') ?? 0;
-    final caretaker = json['caretaker'] is Map<String, dynamic>
-        ? json['caretaker'] as Map<String, dynamic>
-        : const <String, dynamic>{};
+    final caretakerRows = <Map<String, dynamic>>[];
+    for (final item in (json['caretakers'] as List<dynamic>? ?? const [])) {
+      if (item is Map<String, dynamic>) caretakerRows.add(item);
+    }
+    if (caretakerRows.isEmpty && json['caretaker'] is Map<String, dynamic>) {
+      caretakerRows.add(json['caretaker'] as Map<String, dynamic>);
+    }
     return Machine(
       id: json['id'] as String,
       name: json['name'] as String,
       location: json['location'] as String? ?? '',
       latitude: double.tryParse('${json['latitude'] ?? ''}'),
       longitude: double.tryParse('${json['longitude'] ?? ''}'),
-      caretakerId: '${caretaker['id'] ?? ''}',
-      caretakerName: '${caretaker['name'] ?? ''}',
+      caretakerIds: caretakerRows
+          .map((item) => '${item['id'] ?? ''}')
+          .where((id) => id.isNotEmpty)
+          .toList(),
+      caretakerNames: caretakerRows
+          .map((item) => '${item['name'] ?? ''}')
+          .where((name) => name.isNotEmpty)
+          .toList(),
       canOperate: json['can_operate'] == true,
       isOn: json['status'] == 'Online',
       plasticLevel: level('plastic'),
