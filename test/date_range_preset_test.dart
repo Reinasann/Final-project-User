@@ -5,7 +5,7 @@ void main() {
   test('exposes the requested Thai date-range options in order', () {
     expect(
       appDateRangePresets.map((preset) => preset.label).toList(),
-      ['7 วัน', '30 วัน', '3 เดือน', '6 เดือน', '1 ปี', 'กำหนดเอง'],
+      ['กำหนดเอง', '7 วัน', '30 วัน', '3 เดือน', '6 เดือน', '1 ปี'],
     );
   });
 

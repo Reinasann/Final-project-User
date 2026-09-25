@@ -66,7 +66,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
       }
     });
     _loadMachine(forceRefresh: true);
-    _loadDatabaseData();
+    _loadDatabaseData(forceRefresh: true);
   }
 
   @override
@@ -136,10 +136,10 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
     }
   }
 
-  Future<void> _loadDatabaseData() async {
+  Future<void> _loadDatabaseData({bool forceRefresh = false}) async {
     try {
       final results = await Future.wait([
-        ApiService.issues(),
+        ApiService.issues(forceRefresh: forceRefresh),
         ApiService.collections(),
         ApiService.notifications(),
       ]);
@@ -246,7 +246,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
     if (mounted) {
       await Future.wait([
         _loadMachine(forceRefresh: true),
-        _loadDatabaseData(),
+        _loadDatabaseData(forceRefresh: true),
       ]);
     }
   }
@@ -390,7 +390,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'ระบบพักรับข้อมูลเป็นเวลา 30 นาที หาก ESP32 ยังส่งข้อมูลหลังครบเวลา เครื่องจะกลับเป็น Online อัตโนมัติ',
+                        'ระบบพักรับข้อมูลเป็นเวลา 30 นาที หาก ESP32 ยังส่งข้อมูลหลังครบเวลา เครื่องจะกลับมาออนไลน์อัตโนมัติ',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -409,7 +409,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
             _buildBinLevel(
               'พลาสติก',
               plasticLevel,
-              Colors.orange,
+              Colors.green,
               (val) => plasticLevel = val,
             ),
             _buildBinLevel(
@@ -421,7 +421,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
             _buildBinLevel(
               'กระป๋อง',
               canLevel,
-              Colors.green,
+              Colors.orange,
               (val) => canLevel = val,
             ),
 
@@ -442,7 +442,9 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                             ),
                           ),
                         );
-                        if (created == true) _loadDatabaseData();
+                        if (created == true) {
+                          _loadDatabaseData(forceRefresh: true);
+                        }
                       }
                     : null,
               ),
@@ -456,6 +458,9 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ExpansionTile(
+                onExpansionChanged: (expanded) {
+                  if (expanded) _loadDatabaseData(forceRefresh: true);
+                },
                 title: Row(
                   children: [
                     const Icon(Icons.history_edu, color: Colors.orange),
@@ -502,26 +507,36 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            subtitle: Text('${issue.date} • ${issue.status}'),
+                            subtitle:
+                                Text('${issue.date} • ${issue.statusLabel}'),
                             trailing: const Icon(Icons.chevron_right),
-                            onTap: () {
+                            onTap: () async {
+                              await _loadDatabaseData(forceRefresh: true);
+                              if (!context.mounted) return;
+                              final latest = machineIssues.firstWhere(
+                                (item) => item.id == issue.id,
+                                orElse: () => issue,
+                              );
                               // Show Detail Dialog
                               showDialog(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                  title: Text(issue.title),
+                                  title: Text(latest.title),
                                   content: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text('วันที่: ${issue.date}'),
+                                      Text('วันที่: ${latest.date}'),
                                       Text(
-                                        'สถานะ: ${issue.status == 'Resolved' ? 'แก้ไขแล้ว' : 'รอดำเนินการ'}',
+                                        'สถานะ: ${latest.statusLabel}',
                                         style: TextStyle(
-                                          color: issue.status == 'Resolved'
+                                          color: latest.status == 'Completed' ||
+                                                  latest.status == 'Resolved'
                                               ? Colors.green
-                                              : Colors.orange,
+                                              : latest.status == 'In Progress'
+                                                  ? Colors.blue
+                                                  : Colors.orange,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -532,7 +547,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Text(issue.description),
+                                      Text(latest.description),
                                     ],
                                   ),
                                   actions: [

@@ -64,6 +64,11 @@ class _MachineListPageState extends State<MachineListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final fullCount = _machines
+        .where((m) =>
+            m.plasticLevel >= 0.9 || m.glassLevel >= 0.9 || m.canLevel >= 0.9)
+        .length;
+    final offlineCount = _machines.where((m) => !m.isOn).length;
     List<Machine> filteredMachines = _machines.where((m) {
       // Requirement 3: กรองแสดงเฉพาะเครื่องของผู้ดูแลคนนั้นๆ เสมอ
       if (_searchQuery.isNotEmpty) {
@@ -134,14 +139,24 @@ class _MachineListPageState extends State<MachineListPage> {
                       _buildFilterChip('ทั้งหมด', 'All'),
                       const SizedBox(width: 8),
                       _buildFilterChip(
+                        'ถังเต็ม',
+                        'Full',
+                        color: Colors.orange,
+                        badgeCount: fullCount,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        'ออฟไลน์',
+                        'Offline',
+                        color: Colors.red,
+                        badgeCount: offlineCount,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
                         'ออนไลน์',
                         'Online',
                         color: Colors.green,
                       ),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('ออฟไลน์', 'Offline', color: Colors.red),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('ถังเต็ม', 'Full', color: Colors.orange),
                     ],
                   ),
                 ),
@@ -363,10 +378,36 @@ class _MachineListPageState extends State<MachineListPage> {
     String label,
     String value, {
     Color color = Colors.grey,
+    int badgeCount = 0,
   }) {
     bool isSelected = _statusFilter == value;
     return ChoiceChip(
-      label: Text(label),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          if (badgeCount > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                badgeCount > 99 ? '99+' : '$badgeCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
       selected: isSelected,
       onSelected: (selected) =>
           setState(() => _statusFilter = selected ? value : 'All'),

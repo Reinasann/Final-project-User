@@ -46,9 +46,9 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Color _typeColor(String type) {
-    if (type.contains('พลาสติก')) return Colors.orange;
+    if (type.contains('พลาสติก')) return Colors.green;
     if (type.contains('แก้ว')) return Colors.blue;
-    if (type.contains('กระป๋อง')) return Colors.green;
+    if (type.contains('กระป๋อง')) return Colors.orange;
     return Colors.grey;
   }
 

@@ -11,12 +11,12 @@ class AppDateRangePreset {
 }
 
 const appDateRangePresets = <AppDateRangePreset>[
+  AppDateRangePreset('custom', 'กำหนดเอง', isCustom: true),
   AppDateRangePreset('7d', '7 วัน'),
   AppDateRangePreset('30d', '30 วัน'),
   AppDateRangePreset('3m', '3 เดือน'),
   AppDateRangePreset('6m', '6 เดือน'),
   AppDateRangePreset('1y', '1 ปี'),
-  AppDateRangePreset('custom', 'กำหนดเอง', isCustom: true),
 ];
 
 DateTime _subtractMonthsClamped(DateTime date, int months) {

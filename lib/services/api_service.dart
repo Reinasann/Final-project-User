@@ -119,7 +119,7 @@ class ApiService {
     );
     final body = _decode(response);
     if (response.statusCode != 200) {
-      throw ApiException(body['detail']?.toString() ?? 'Login failed.');
+      throw ApiException(body['detail']?.toString() ?? 'เข้าสู่ระบบไม่สำเร็จ');
     }
     _clearCaches();
     _token = body['access_token'] as String;
@@ -190,7 +190,7 @@ class ApiService {
     final body = _decode(response);
     if (response.statusCode != 200) {
       throw ApiException(
-          body['detail']?.toString() ?? 'Unable to load machines.');
+          body['detail']?.toString() ?? 'ไม่สามารถโหลดรายการเครื่องได้');
     }
     return (body['results'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -547,10 +547,14 @@ class ApiService {
   ) {
     final body = _decode(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      if (response.statusCode == 401 && _token != null) {
+      final detail = body['detail']?.toString() ?? '';
+      if (_token != null &&
+          (response.statusCode == 401 ||
+              (response.statusCode == 403 &&
+                  detail.contains('หน่วยงานนี้ถูกระงับ')))) {
         unawaited(clearSession(notifyExpired: true));
       }
-      throw ApiException(body['detail']?.toString() ?? fallbackMessage);
+      throw ApiException(detail.isNotEmpty ? detail : fallbackMessage);
     }
     return body;
   }

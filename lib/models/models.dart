@@ -231,6 +231,13 @@ class IssueReportItem {
   final String date;
   final String status; // Pending, Resolved
 
+  String get statusLabel => switch (status) {
+        'Waiting' => 'รอดำเนินการ',
+        'In Progress' => 'กำลังดำเนินการ',
+        'Completed' || 'Resolved' => 'เสร็จสิ้น',
+        _ => 'ไม่ทราบสถานะ',
+      };
+
   IssueReportItem({
     required this.id,
     required this.machineId,
