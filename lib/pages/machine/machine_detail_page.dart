@@ -256,7 +256,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_machine.name),
-        // Requirement 5: ปุ่มพิมพ์ป้ายลาเบลทั่วไป ให้นำออก (actions ว่าง)
+        // Requirement 5: ปุ่มพิมพ์ป้ายสำหรับผูกหรือติดถุงทั่วไป ให้นำออก (actions ว่าง)
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -409,18 +409,21 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
             _buildBinLevel(
               'พลาสติก',
               plasticLevel,
+              _machine.plasticWeight,
               Colors.green,
               (val) => plasticLevel = val,
             ),
             _buildBinLevel(
               'แก้ว',
               glassLevel,
+              _machine.glassWeight,
               Colors.blueAccent,
               (val) => glassLevel = val,
             ),
             _buildBinLevel(
               'กระป๋อง',
               canLevel,
+              _machine.canWeight,
               Colors.orange,
               (val) => canLevel = val,
             ),
@@ -658,6 +661,7 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
   Widget _buildBinLevel(
     String label,
     double level,
+    double weightKg,
     Color color,
     Function(double) updateState,
   ) {
@@ -689,12 +693,26 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                     label,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(
-                    '${(level * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${(level * 100).toInt()}%',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatBinWeight(weightKg),
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -801,6 +819,15 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
                             '${(level * 100).toInt()}%',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatBinWeight(weightKg),
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           SizedBox(
                             height: 30,
@@ -829,5 +856,10 @@ class _MachineDetailPageState extends State<MachineDetailPage> {
               ),
             ),
     );
+  }
+
+  String _formatBinWeight(double weightKg) {
+    final decimalPlaces = weightKg == weightKg.roundToDouble() ? 0 : 2;
+    return '${weightKg.toStringAsFixed(decimalPlaces)} กก.';
   }
 }

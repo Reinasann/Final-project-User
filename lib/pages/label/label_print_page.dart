@@ -76,7 +76,7 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'เลือกส่งลาเบลไปยังเครื่องพิมพ์ หรือบันทึกเป็นไฟล์ PDF',
+                  'เลือกส่งป้ายสำหรับผูกหรือติดถุงไปยังเครื่องพิมพ์ หรือบันทึกเป็นไฟล์ PDF',
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -95,7 +95,8 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
                   icon: Icons.picture_as_pdf_outlined,
                   color: Colors.red,
                   title: 'พิมพ์เป็น PDF',
-                  subtitle: 'บันทึก ดาวน์โหลด หรือแชร์ไฟล์ลาเบล PDF',
+                  subtitle:
+                      'บันทึก ดาวน์โหลด หรือแชร์ไฟล์ป้ายสำหรับผูกหรือติดถุง PDF',
                   onTap: () => Navigator.pop(context, _LabelOutputType.pdf),
                 ),
               ],
@@ -132,15 +133,17 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
         SnackBar(
           content: Text(
             output == _LabelOutputType.printer
-                ? 'ส่งลาเบลไปยังระบบเครื่องพิมพ์แล้ว'
-                : 'สร้างไฟล์ลาเบล PDF แล้ว',
+                ? 'ส่งป้ายสำหรับผูกหรือติดถุงไปยังระบบเครื่องพิมพ์แล้ว'
+                : 'สร้างไฟล์ป้ายสำหรับผูกหรือติดถุง PDF แล้ว',
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ไม่สามารถพิมพ์ลาเบลได้: $error')),
+        SnackBar(
+          content: Text('ไม่สามารถพิมพ์ป้ายสำหรับผูกหรือติดถุงได้: $error'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -201,7 +204,7 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('พิมพ์ลาเบล')),
+      appBar: AppBar(title: const Text('ป้ายสำหรับผูกหรือติดถุง')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -221,7 +224,7 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'บันทึกการเก็บขยะลงฐานข้อมูลแล้ว กรุณาพิมพ์ลาเบล',
+                        'บันทึกการเก็บขยะลงฐานข้อมูลแล้ว กรุณาพิมพ์ป้ายสำหรับผูกหรือติดถุง',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -258,7 +261,10 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
               ),
             ),
             const SizedBox(height: 30),
-            const Text('ตัวอย่างลาเบล', style: TextStyle(color: Colors.grey)),
+            const Text(
+              'ตัวอย่างป้ายสำหรับผูกหรือติดถุง',
+              style: TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 10),
             Center(
               child: Container(
@@ -357,7 +363,9 @@ class _LabelPrintPageState extends State<LabelPrintPage> {
                       )
                     : const Icon(Icons.print),
                 label: Text(
-                  _isProcessing ? 'กำลังเตรียมลาเบล…' : 'พิมพ์ลาเบล',
+                  _isProcessing
+                      ? 'กำลังเตรียมป้ายสำหรับผูกหรือติดถุง…'
+                      : 'พิมพ์ป้ายสำหรับผูกหรือติดถุง',
                 ),
               ),
             ),
