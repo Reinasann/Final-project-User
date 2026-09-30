@@ -149,6 +149,7 @@ class _ReportPageState extends State<ReportPage> {
     );
     if (result != null) {
       setState(() {
+        _rangePreset = 'custom';
         _customStartDate = result.start;
         _customEndDate = result.end;
       });
